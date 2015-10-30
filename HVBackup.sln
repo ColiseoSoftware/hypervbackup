@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.40629.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HVBackup.Engine", "HyperVBackup.Engine\HVBackup.Engine.csproj", "{096F7CB1-EC67-4388-A7A4-1747EE09DB29}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HVBackup.Console", "HyperVBackup.Console\HVBackup.Console.csproj", "{15A16478-D2E8-431C-99BA-EAABE878B450}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lib", "Lib", "{84AD2C1E-E2F3-4D47-8E90-1A9C2FC39A38}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "x86", "x86", "{58B16447-86C0-49AC-A91E-A09102FA2FB7}"
+	ProjectSection(SolutionItems) = preProject
+		Lib\x86\7z.dll = Lib\x86\7z.dll
+		Lib\x86\AlphaVSS.60.x86.dll = Lib\x86\AlphaVSS.60.x86.dll
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "x64", "x64", "{D3B4C643-CC63-4E0A-86CF-7AB4F80D22C0}"
+	ProjectSection(SolutionItems) = preProject
+		Lib\x64\7z.dll = Lib\x64\7z.dll
+		Lib\x64\AlphaVSS.60.x64.dll = Lib\x64\AlphaVSS.60.x64.dll
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{096F7CB1-EC67-4388-A7A4-1747EE09DB29}.Debug|x64.ActiveCfg = Debug|x64
+		{096F7CB1-EC67-4388-A7A4-1747EE09DB29}.Debug|x64.Build.0 = Debug|x64
+		{096F7CB1-EC67-4388-A7A4-1747EE09DB29}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{096F7CB1-EC67-4388-A7A4-1747EE09DB29}.Release|x64.ActiveCfg = Release|x64
+		{096F7CB1-EC67-4388-A7A4-1747EE09DB29}.Release|x64.Build.0 = Release|x64
+		{096F7CB1-EC67-4388-A7A4-1747EE09DB29}.Release|x86.ActiveCfg = Release|x86
+		{096F7CB1-EC67-4388-A7A4-1747EE09DB29}.Release|x86.Build.0 = Release|x86
+		{15A16478-D2E8-431C-99BA-EAABE878B450}.Debug|x64.ActiveCfg = Debug|x64
+		{15A16478-D2E8-431C-99BA-EAABE878B450}.Debug|x64.Build.0 = Debug|x64
+		{15A16478-D2E8-431C-99BA-EAABE878B450}.Debug|x86.ActiveCfg = Debug|x86
+		{15A16478-D2E8-431C-99BA-EAABE878B450}.Debug|x86.Build.0 = Debug|x86
+		{15A16478-D2E8-431C-99BA-EAABE878B450}.Release|x64.ActiveCfg = Release|x64
+		{15A16478-D2E8-431C-99BA-EAABE878B450}.Release|x64.Build.0 = Release|x64
+		{15A16478-D2E8-431C-99BA-EAABE878B450}.Release|x86.ActiveCfg = Release|x86
+		{15A16478-D2E8-431C-99BA-EAABE878B450}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{58B16447-86C0-49AC-A91E-A09102FA2FB7} = {84AD2C1E-E2F3-4D47-8E90-1A9C2FC39A38}
+		{D3B4C643-CC63-4E0A-86CF-7AB4F80D22C0} = {84AD2C1E-E2F3-4D47-8E90-1A9C2FC39A38}
+	EndGlobalSection
+EndGlobal
