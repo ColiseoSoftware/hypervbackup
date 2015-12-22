@@ -22,6 +22,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.InteropServices;
 using CommandLine;
 using CommandLine.Text;
 using HyperVBackUp.Engine;
@@ -83,6 +84,12 @@ namespace HyperVBackup.Console
             [Option("compressionlevel", DefaultValue = 6, HelpText = "Compression level, between 0 (no compression) and 9 (max. compression).")]
             public int CompressionLevel { get; set; }
 
+            [Option("cleanoutputbydays", DefaultValue = 0, HelpText = "Delete all files in the output folder older than x days. TOTALLY OPTIONAL. USE WITH CAUTION.")]
+            public int CleanOutputDays { get; set; }
+
+            [Option("cleanoutputbymb", DefaultValue = 0, HelpText = "Delete older files in the output folder if total size is bigger then x Megabytes. TOTALLY OPTIONAL. USE WITH CAUTION.")]
+            public int CleanOutputMb { get; set; }
+
             [ParserState]
             public IParserState LastParserState { get; set; }
 
@@ -112,7 +119,7 @@ namespace HyperVBackup.Console
                 Stopwatch stopwatch = new Stopwatch();
                 stopwatch.Start();
 
-                System.Console.WriteLine("HyperVBackup 2.0");
+                System.Console.WriteLine("HyperVBackup 2.1");
                 System.Console.WriteLine("Copyright (C) 2012 Cloudbase Solutions Srl");
                 System.Console.WriteLine("Copyright (C) 2015 Coliseo Software Srl");
 
@@ -121,15 +128,27 @@ namespace HyperVBackup.Console
                 if (parser.ParseArgumentsStrict(args, options, () => Environment.Exit(1)))
                 {
                     GetConsoleWidth();
+                    System.Console.WriteLine();
+
+                    if (options.CleanOutputDays != 0)
+                        CleanOutputByDays(options.Output, options.CleanOutputDays);
+
+                    if (options.CleanOutputMb != 0)
+                        CleanOutputByMegabytes(options.Output, options.CleanOutputMb);
 
                     var vmNames = GetVMNames(options);
 
-                    System.Console.WriteLine();
                     if (vmNames == null)
                         System.Console.WriteLine("Backing up all VMs on this server");
 
                     if (!Directory.Exists(options.Output))
                         throw new Exception(string.Format("The folder \"{0}\" is not valid", options.Output));
+
+                    if (options.CleanOutputDays != 0)
+                        CleanOutputByDays(options.Output, options.CleanOutputDays);
+
+                    if (options.CleanOutputMb != 0)
+                        CleanOutputByMegabytes(options.Output, options.CleanOutputMb);
 
                     VMNameType nameType = options.Name ? VMNameType.ElementName : VMNameType.SystemName;
 
@@ -169,6 +188,49 @@ namespace HyperVBackup.Console
             }
 
             Environment.Exit(cancel ? 3 : 0);
+        }
+
+
+
+        private static void CleanOutputByDays(string output, int days)
+        {
+            var files = Directory.GetFiles(output);
+
+            foreach (var file in files)
+            {
+                var fileInfo = new FileInfo(file);
+                if (fileInfo.LastWriteTime < DateTime.Now.AddDays(days * -1))
+                {
+                    System.Console.WriteLine("Deleting file {0}", fileInfo.Name);
+                    fileInfo.Delete();
+                }
+            }
+        }
+
+
+        private static void CleanOutputByMegabytes(string output, int totalMb)
+        {
+            var dirInfo = new DirectoryInfo(output);
+            var totalSize = dirInfo.EnumerateFiles().Sum(file => file.Length);
+            long desiredMaxSize = (long)totalMb * 1024 * 1024;
+
+            if (totalSize > desiredMaxSize)
+            {
+                System.Console.WriteLine("Size of output folder is {0} Megabytes, deleting some files ...", totalSize / 1024 / 1024);
+
+                var files = dirInfo.GetFiles();
+                while (totalSize > desiredMaxSize && files.Length != 0)
+                {
+                    var sortedFiles = files.OrderBy(f => f.LastWriteTime).ToList();
+                    var filetoDelete = sortedFiles[0].FullName;
+
+                    System.Console.WriteLine("Deleting file {0}", filetoDelete);
+                    File.Delete(filetoDelete);
+
+                    files = dirInfo.GetFiles();
+                    totalSize = files.Sum(file => file.Length);
+                }
+            }
         }
 
         private static void ConfigureSettings(ParserSettings settings)

@@ -225,8 +225,17 @@ namespace HyperVBackUp.Engine
                         var volumePath = volumeMap.Keys.OrderBy((o) => o.Length).Reverse().Where((o) => path.StartsWith(o, StringComparison.OrdinalIgnoreCase)).First();
                         var volumeName = volumeMap[volumePath];
 
+
+                        // Exclude snapshots
                         var fileName = Path.GetFileName(path.Substring(volumePath.Length)).ToUpperInvariant();
-                        var include = Path.GetExtension(fileName).ToLowerInvariant() != ".avhdx" && Path.GetExtension(fileName).ToLowerInvariant() != ".vmrs";
+                        var include = !path.EndsWith("\\*");
+
+                        var pathItems = path.Split(Path.DirectorySeparatorChar);
+                        if (pathItems.Length >= 2)
+                        {
+                            if (pathItems[pathItems.Length - 2].ToLowerInvariant() == "snapshots")
+                                include = false;
+                        }
 
                         if (include && options.VhdInclude != null)
                         {
@@ -242,6 +251,8 @@ namespace HyperVBackUp.Engine
 
                         if (include)
                             AddPathToSevenZip(files, streams, snapshotVolumeMap[volumeName], volumePath.Length, path);
+                        else
+                            Console.WriteLine("Ignoring file {0}", path);
                     }
 
                     SevenZipExtractor.SetLibraryPath(Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase, "7z.dll"));
@@ -382,7 +393,14 @@ namespace HyperVBackUp.Engine
                 streams.Add(s);
             }
             else
-                throw new Exception(string.Format("Entry \"{0}\" not found in snapshot", srcPath));
+            {
+                var lowerPath = srcPath.ToLowerInvariant();
+                var isIgnorable = lowerPath.EndsWith(".avhdx") || lowerPath.EndsWith(".vmrs") ||
+                                lowerPath.EndsWith(".bin") || lowerPath.EndsWith(".vsv");
+
+                if (!isIgnorable)
+                    throw new Exception($"Entry \"{srcPath}\" not found in snapshot");
+            }
         }
 
 
