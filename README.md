@@ -31,8 +31,8 @@ HyperVBackup only works on HyperV Server (Windows Server 2012, 2012 R2 and 2016 
 
 The output is stored in 7zip format (you must provide the 7z.dll file corresponding to the version you want to use, included is version 15.09 beta).
 
-Trobleshooting
+**Troubleshooting**
 
-* If you find the following error when you run the program: System.MissingMethodException: Method not found System.Array.Empty() you are probably running the Net Framework 4.5, you need to install the 4.6 version
+* If you find the following error when you run the program: System.MissingMethodException: Method not found System.Array.Empty() you are probably running the Net Framework 4.5, you need to install version 4.6.
 
-* If you find the following error when you run the program: Could not load file or assembly AlphaVSS.60x64.dll you need to install the Microsoft Visual C++ 2010 SP1 Redistributable Package
+* If you find the following error when you run the program: Could not load file or assembly AlphaVSS.60x64.dll you need to install the Microsoft Visual C++ 2010 SP1 Redistributable Package.
