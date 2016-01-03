@@ -7,3 +7,5 @@
 /HyperVBackup.Engine/bin
 /HyperVBackup.Engine/obj
 /packages
+/.vs/config/applicationhost.config
+/.vs/HVBackup/v14/.suo

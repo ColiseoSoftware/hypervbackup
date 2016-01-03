@@ -21,6 +21,8 @@ p, password         Secure the backup with a password.
 outputformat        Backup archive name format. {0} is the VM's name, {1} the VM's GUID and {2} is the current date and time. Default: "{0}_{2:yyyyMMddHHmmss}.zip"
 s, singlevss        Perform one single snapshot for all the VMs.
 compressionlevel    (Default: 6) Compression level, between 0 (no compression) and 9 (max. compression).
+cleanoutputbydays   Delete all files in the output folder older than x days. TOTALLY OPTIONAL. USE WITH CAUTION.
+cleanoutputbymb     Delete older files in the output folder if total size is bigger then x Megabytes. TOTALLY OPTIONAL. USE WITH CAUTION.
 ```
 
 For example, if you want to backup the Mail Server virtual machine on \\\shared\backups folder you use:
@@ -29,10 +31,17 @@ For example, if you want to backup the Mail Server virtual machine on \\\shared\
 
 HyperVBackup only works on HyperV Server (Windows Server 2012, 2012 R2 and 2016 supported) and DOESN’T work on HyperV Client (Windows 8, 8.1 or 10).
 
-The output is stored in 7zip format (you must provide the 7z.dll file corresponding to the version you want to use, included is version 15.09 beta).
+The output is stored in 7zip format (you must provide the 7z.dll file corresponding to the version you want to use, included is version 15.14).
+
+
+More information [in the Wiki] (https://github.com/ColiseoSoftware/hypervbackup/wiki)
 
 **Troubleshooting**
 
 * If you find the following error when you run the program: System.MissingMethodException: Method not found System.Array.Empty() you are probably running the Net Framework 4.5, you need to install version 4.6.
 
 * If you find the following error when you run the program: Could not load file or assembly AlphaVSS.60x64.dll you need to install the Microsoft Visual C++ 2010 SP1 Redistributable Package.
+
+
+
+
