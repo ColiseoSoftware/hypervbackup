@@ -12,5 +12,6 @@ namespace HyperVBackUp.Engine
         public IList<string> VhdIgnore { get; set; }
         public int CompressionLevel { get; set; }
         public bool ZipFormat { get; set; }
+        public bool DirectCopy { get; set; }
     }
 }

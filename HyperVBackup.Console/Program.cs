@@ -1,5 +1,5 @@
 ﻿/*
- *  Copyright 2012 Cloudbase Solutions Srl + 2015 Coliseo Software srl
+ *  Copyright 2012 Cloudbase Solutions Srl + 2016 Coliseo Software srl
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -63,11 +63,14 @@ namespace HyperVBackup.Console
             [Option('p', "password", HelpText = "Secure the backup with a password.")]
             public string Password { get; set; }
 
-            [Option('z', "zip", HelpText = "Use the zip format to store the backup.")]
+            [Option('z', "zip", HelpText = "Use the zip format to store the backup.", MutuallyExclusiveSet = "zd")]
             public bool ZipFormat { get; set; }
 
-            [Option("outputformat", HelpText = "Backup archive name format. {0} is the VM's name, {1} the VM's GUID and {2} is the current date and time. Default: \"{0}_{2:yyyyMMddHHmmss}.zip\"")]
-            public string OutputFormat { get; set; } = "{0}_{2:yyyyMMddHHmmss}.{3}";
+            [Option('d', "directcopy", HelpText = "Do not compress the output, just copy the files recreating the folder structure.", MutuallyExclusiveSet = "zd")]
+            public bool DirectCopy { get; set; }
+
+            [Option("outputformat", HelpText = "Backup archive name format. {0} is the VM's name, {1} the VM's GUID and {2} is the current date and time. Default: \"{0}_{2:yyyyMMddHHmmss}{3}\"")]
+            public string OutputFormat { get; set; } = "{0}_{2:yyyyMMddHHmmss}{3}";
 
             [Option('s', "singlevss", HelpText = "Perform one single snapshot for all the VMs.")]
             public bool SingleSnapshot { get; set; }
@@ -114,9 +117,9 @@ namespace HyperVBackup.Console
                 var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
-                System.Console.WriteLine("HyperVBackup 2.1");
+                System.Console.WriteLine("HyperVBackup 2.2");
                 System.Console.WriteLine("Copyright (C) 2012 Cloudbase Solutions Srl");
-                System.Console.WriteLine("Copyright (C) 2015 Coliseo Software Srl");
+                System.Console.WriteLine("Copyright (C) 2016 Coliseo Software Srl");
 
                 var parser = new Parser(ConfigureSettings);
                 var options = new Options();
@@ -161,7 +164,8 @@ namespace HyperVBackup.Console
                         VhdInclude = options.VhdInclude,
                         VhdIgnore = options.VhdIgnore,
                         Password = options.Password,
-                        ZipFormat = options.ZipFormat
+                        ZipFormat = options.ZipFormat,
+                        DirectCopy = options.DirectCopy
                     };
 
                     var vmNamesMap = mgr.VssBackup(vmNames, nameType, backupOptions);
