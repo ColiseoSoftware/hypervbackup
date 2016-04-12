@@ -37,7 +37,7 @@ namespace HyperVBackUp.Engine
 
     public enum EventAction
     {
-        InitializingVSS,
+        InitializingVss,
         StartingSnaphotSet,
         SnapshotSetDone,
         StartingArchive,
@@ -62,16 +62,16 @@ namespace HyperVBackUp.Engine
         public IDictionary<string, string> VolumeMap { get; set; }
     }
 
-    public enum VMNameType { ElementName, SystemName }
+    public enum VmNameType { ElementName, SystemName }
 
     public class BackupManager
     {
         public event EventHandler<BackupProgressEventArgs> BackupProgress;
-        private volatile bool cancel = false;
+        private volatile bool _cancel = false;
 
-        public IDictionary<string, string> VSSBackup(IEnumerable<string> vmNames, VMNameType nameType, Options options)
+        public IDictionary<string, string> VssBackup(IEnumerable<string> vmNames, VmNameType nameType, Options options)
         {
-            cancel = false;
+            _cancel = false;
             var vmNamesMap = GetVMNames(vmNames, nameType);
 
             if (vmNamesMap.Count > 0)
@@ -81,8 +81,7 @@ namespace HyperVBackUp.Engine
                 else
                     foreach (var kv in vmNamesMap)
                     {
-                        var vmNamesMapSubset = new Dictionary<string, string>();
-                        vmNamesMapSubset.Add(kv.Key, kv.Value);
+                        var vmNamesMapSubset = new Dictionary<string, string> { { kv.Key, kv.Value } };
                         BackupSubset(vmNamesMapSubset, options);
                     }
             }
@@ -92,17 +91,17 @@ namespace HyperVBackUp.Engine
 
         private void BackupSubset(IDictionary<string, string> vmNamesMapSubset, Options options)
         {
-            IVssImplementation vssImpl = VssUtils.LoadImplementation();
-            using (IVssBackupComponents vss = vssImpl.CreateVssBackupComponents())
+            var vssImpl = VssUtils.LoadImplementation();
+            using (var vss = vssImpl.CreateVssBackupComponents())
             {
-                RaiseEvent(EventAction.InitializingVSS, null, null);
+                RaiseEvent(EventAction.InitializingVss, null, null);
 
                 vss.InitializeForBackup(null);
                 vss.SetBackupState(true, true, VssBackupType.Full, false);
                 vss.SetContext(VssSnapshotContext.Backup);
 
                 // Add Hyper-V writer
-                Guid hyperVwriterGuid = new Guid("66841cd4-6ded-4f4b-8f17-fd23f8ddc3de");
+                var hyperVwriterGuid = new Guid("66841cd4-6ded-4f4b-8f17-fd23f8ddc3de");
                 vss.EnableWriterClasses(new Guid[] { hyperVwriterGuid });
 
                 vss.GatherWriterMetadata();
@@ -111,7 +110,7 @@ namespace HyperVBackUp.Engine
                 // key: volumePath, value: volumeName. These values are equivalent on a standard volume, but differ in the CSV case  
                 IDictionary<string, string> volumeMap = new Dictionary<string, string>();
 
-                var wm = vss.WriterMetadata.Where((o) => o.WriterId.Equals(hyperVwriterGuid)).FirstOrDefault();
+                var wm = vss.WriterMetadata.FirstOrDefault(o => o.WriterId.Equals(hyperVwriterGuid));
                 foreach (var component in wm.Components)
                 {
                     if (vmNamesMapSubset.ContainsKey(component.ComponentName))
@@ -134,7 +133,7 @@ namespace HyperVBackUp.Engine
 
                 if (components.Count > 0)
                 {
-                    Guid vssSet = vss.StartSnapshotSet();
+                    var vssSet = vss.StartSnapshotSet();
 
                     // Key: volumeName, value: snapshotGuid
                     IDictionary<string, Guid> snapshots = new Dictionary<string, Guid>();
@@ -197,7 +196,7 @@ namespace HyperVBackUp.Engine
         }
 
 
-        private static string sevenZipCurrentFile = string.Empty;
+        private static string _sevenZipCurrentFile = string.Empty;
 
         private void BackupFiles(IList<IVssWMComponent> components, IDictionary<string, string> volumeMap,
                                    IDictionary<string, string> snapshotVolumeMap, IDictionary<string, string> vmNamesMap,
@@ -208,7 +207,11 @@ namespace HyperVBackUp.Engine
             {
                 foreach (var component in components)
                 {
-                    string vmBackupPath = Path.Combine(options.Output, string.Format(options.OutputFormat, vmNamesMap[component.ComponentName], component.ComponentName, DateTime.Now, "7z"));
+                    var vmBackupPath = Path.Combine(options.Output,
+                        string.Format(options.OutputFormat, vmNamesMap[component.ComponentName],
+                        component.ComponentName,
+                        DateTime.Now,
+                        options.ZipFormat ? "zip" : "7z"));
                     File.Delete(vmBackupPath);
 
                     var files = new Dictionary<string, System.IO.Stream>();
@@ -222,7 +225,7 @@ namespace HyperVBackUp.Engine
                             path = Path.Combine(file.Path, file.FileSpecification);
 
                         // Get the longest matching path
-                        var volumePath = volumeMap.Keys.OrderBy((o) => o.Length).Reverse().Where((o) => path.StartsWith(o, StringComparison.OrdinalIgnoreCase)).First();
+                        var volumePath = volumeMap.Keys.OrderBy(o => o.Length).Reverse().First(o => path.StartsWith(o, StringComparison.OrdinalIgnoreCase));
                         var volumeName = volumeMap[volumePath];
 
 
@@ -255,13 +258,15 @@ namespace HyperVBackUp.Engine
                             Console.WriteLine("Ignoring file {0}", path);
                     }
 
-                    SevenZipExtractor.SetLibraryPath(Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase, "7z.dll"));
+                    SevenZipBase.SetLibraryPath(Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase, "7z.dll"));
 
-                    var sevenZip = new SevenZipCompressor();
-                    sevenZip.ArchiveFormat = OutArchiveFormat.SevenZip;
-                    sevenZip.CompressionMode = CompressionMode.Create;
-                    sevenZip.DirectoryStructure = true;
-                    sevenZip.PreserveDirectoryRoot = false;
+                    var sevenZip = new SevenZipCompressor
+                    {
+                        ArchiveFormat = options.ZipFormat ? OutArchiveFormat.Zip : OutArchiveFormat.SevenZip,
+                        CompressionMode = CompressionMode.Create,
+                        DirectoryStructure = true,
+                        PreserveDirectoryRoot = false
+                    };
                     sevenZip.CustomParameters.Add("mt", "on");
 
                     switch (options.CompressionLevel)
@@ -308,11 +313,11 @@ namespace HyperVBackUp.Engine
                                 Action = EventAction.StartingArchive
                             };
 
-                            sevenZipCurrentFile = e.FileName;
+                            _sevenZipCurrentFile = e.FileName;
 
                             Report7ZipProgress(component, volumeMap, ebp);
 
-                            if (cancel)
+                            if (_cancel)
                             {
                                 e.Cancel = true;
                             }
@@ -320,30 +325,30 @@ namespace HyperVBackUp.Engine
 
                         sevenZip.FileCompressionFinished += (sender, e) =>
                         {
-                            var ebp = new BackupProgressEventArgs()
+                            var ebp = new BackupProgressEventArgs
                             {
-                                AcrhiveFileName = sevenZipCurrentFile,
+                                AcrhiveFileName = _sevenZipCurrentFile,
                                 Action = EventAction.ArchiveDone
                             };
 
-                            sevenZipCurrentFile = String.Empty;
+                            _sevenZipCurrentFile = string.Empty;
 
                             Report7ZipProgress(component, volumeMap, ebp);
                         };
 
                         sevenZip.Compressing += (sender, e) =>
                         {
-                            var ebp = new BackupProgressEventArgs()
+                            var ebp = new BackupProgressEventArgs
                             {
-                                AcrhiveFileName = sevenZipCurrentFile,
+                                AcrhiveFileName = _sevenZipCurrentFile,
                                 Action = EventAction.PercentProgress,
-                                CurrentEntry = sevenZipCurrentFile,
+                                CurrentEntry = _sevenZipCurrentFile,
                                 PercentDone = e.PercentDone
                             };
 
                             Report7ZipProgress(component, volumeMap, ebp);
 
-                            if (cancel)
+                            if (_cancel)
                             {
                                 e.Cancel = true;
                             }
@@ -355,7 +360,7 @@ namespace HyperVBackUp.Engine
                     else
                         sevenZip.CompressStreamDictionary(files, vmBackupPath, options.Password);
 
-                    if (cancel)
+                    if (_cancel)
                     {
                         if (File.Exists(vmBackupPath))
                         {
@@ -424,7 +429,7 @@ namespace HyperVBackUp.Engine
             return (string.Format(scopeFormatStr, host));
         }
 
-        IDictionary<string, string> GetVMNames(IEnumerable<string> vmNames, VMNameType nameType)
+        IDictionary<string, string> GetVMNames(IEnumerable<string> vmNames, VmNameType nameType)
         {
             IDictionary<string, string> d = new Dictionary<string, string>();
 
@@ -442,14 +447,14 @@ namespace HyperVBackUp.Engine
                 vmIdField = "SystemName";
             }
 
-            string inField = nameType == VMNameType.ElementName ? "ElementName" : vmIdField;
+            var inField = nameType == VmNameType.ElementName ? "ElementName" : vmIdField;
 
-            ManagementScope scope = new ManagementScope(GetWMIScope());
+            var scope = new ManagementScope(GetWMIScope());
 
             if (vmNames != null && vmNames.Count() > 0)
                 query += string.Format(" AND ({0})", GetORStr(inField, vmNames));
 
-            using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(scope, new ObjectQuery(query)))
+            using (var searcher = new ManagementObjectSearcher(scope, new ObjectQuery(query)))
             {
                 using (var moc = searcher.Get())
                     foreach (var mo in moc)
@@ -462,7 +467,7 @@ namespace HyperVBackUp.Engine
 
         private static string GetORStr(string fieldName, IEnumerable<string> vmNames)
         {
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
             foreach (var vmName in vmNames)
             {
                 if (sb.Length > 0)
@@ -493,7 +498,7 @@ namespace HyperVBackUp.Engine
 
             if (ebp.Cancel)
             {
-                cancel = true;
+                _cancel = true;
             }
         }
     }

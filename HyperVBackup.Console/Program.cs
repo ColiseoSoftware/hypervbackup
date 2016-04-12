@@ -20,9 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using CommandLine;
 using CommandLine.Text;
@@ -32,9 +30,9 @@ namespace HyperVBackup.Console
 {
     class Program
     {
-        static volatile bool cancel = false;
-        static int currentWidth = 0;
-        static int consoleWidth = 0;
+        static volatile bool _cancel = false;
+        static int _currentWidth = 0;
+        static int _consoleWidth = 0;
 
         class Options
         {
@@ -65,19 +63,11 @@ namespace HyperVBackup.Console
             [Option('p', "password", HelpText = "Secure the backup with a password.")]
             public string Password { get; set; }
 
-            private string outputFormat = "{0}_{2:yyyyMMddHHmmss}.{3}";
+            [Option('z', "zip", HelpText = "Use the zip format to store the backup.")]
+            public bool ZipFormat { get; set; }
+
             [Option("outputformat", HelpText = "Backup archive name format. {0} is the VM's name, {1} the VM's GUID and {2} is the current date and time. Default: \"{0}_{2:yyyyMMddHHmmss}.zip\"")]
-            public string OutputFormat
-            {
-                get
-                {
-                    return outputFormat;
-                }
-                set
-                {
-                    outputFormat = value;
-                }
-            }
+            public string OutputFormat { get; set; } = "{0}_{2:yyyyMMddHHmmss}.{3}";
 
             [Option('s', "singlevss", HelpText = "Perform one single snapshot for all the VMs.")]
             public bool SingleSnapshot { get; set; }
@@ -111,7 +101,7 @@ namespace HyperVBackup.Console
 
             private void HandleParsingErrorsInHelp(HelpText help)
             {
-                string errors = help.RenderParsingErrorsText(this, 1);
+                var errors = help.RenderParsingErrorsText(this, 1);
                 if (!string.IsNullOrEmpty(errors))
                     help.AddPreOptionsLine(string.Concat("ERROR: ", errors, Environment.NewLine));
             }
@@ -121,7 +111,7 @@ namespace HyperVBackup.Console
         {
             try
             {
-                Stopwatch stopwatch = new Stopwatch();
+                var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
                 System.Console.WriteLine("HyperVBackup 2.1");
@@ -141,13 +131,13 @@ namespace HyperVBackup.Console
                     if (options.CleanOutputMb != 0)
                         CleanOutputByMegabytes(options.Output, options.CleanOutputMb);
 
-                    var vmNames = GetVMNames(options);
+                    var vmNames = GetVmNames(options).ToList();
 
-                    if (vmNames == null)
+                    if (!vmNames.Any())
                         System.Console.WriteLine("Backing up all VMs on this server");
 
                     if (!Directory.Exists(options.Output))
-                        throw new Exception(string.Format("The folder \"{0}\" is not valid", options.Output));
+                        throw new Exception($"The folder \"{options.Output}\" is not valid");
 
                     if (options.CleanOutputDays != 0)
                         CleanOutputByDays(options.Output, options.CleanOutputDays);
@@ -155,9 +145,9 @@ namespace HyperVBackup.Console
                     if (options.CleanOutputMb != 0)
                         CleanOutputByMegabytes(options.Output, options.CleanOutputMb);
 
-                    VMNameType nameType = options.Name ? VMNameType.ElementName : VMNameType.SystemName;
+                    var nameType = options.Name ? VmNameType.ElementName : VmNameType.SystemName;
 
-                    BackupManager mgr = new BackupManager();
+                    var mgr = new BackupManager();
                     mgr.BackupProgress += MgrBackupProgress;
 
                     System.Console.CancelKeyPress += Console_CancelKeyPress;
@@ -170,10 +160,11 @@ namespace HyperVBackup.Console
                         SingleSnapshot = options.SingleSnapshot,
                         VhdInclude = options.VhdInclude,
                         VhdIgnore = options.VhdIgnore,
-                        Password = options.Password
+                        Password = options.Password,
+                        ZipFormat = options.ZipFormat
                     };
 
-                    var vmNamesMap = mgr.VSSBackup(vmNames, nameType, backupOptions);
+                    var vmNamesMap = mgr.VssBackup(vmNames, nameType, backupOptions);
 
                     CheckRequiredVMs(vmNames, nameType, vmNamesMap);
 
@@ -187,15 +178,13 @@ namespace HyperVBackup.Console
             }
             catch (Exception ex)
             {
-                System.Console.Error.WriteLine(string.Format("Error: {0}", ex.Message));
+                System.Console.Error.WriteLine($"Error: {ex.Message}");
                 System.Console.Error.WriteLine(ex.StackTrace);
                 Environment.Exit(2);
             }
 
-            Environment.Exit(cancel ? 3 : 0);
+            Environment.Exit(_cancel ? 3 : 0);
         }
-
-
 
         private static void CleanOutputByDays(string output, int days)
         {
@@ -212,12 +201,11 @@ namespace HyperVBackup.Console
             }
         }
 
-
         private static void CleanOutputByMegabytes(string output, int totalMb)
         {
             var dirInfo = new DirectoryInfo(output);
             var totalSize = dirInfo.EnumerateFiles().Sum(file => file.Length);
-            long desiredMaxSize = (long)totalMb * 1024 * 1024;
+            var desiredMaxSize = (long)totalMb * 1024 * 1024;
 
             if (totalSize > desiredMaxSize)
             {
@@ -249,17 +237,18 @@ namespace HyperVBackup.Console
             stopwatch.Stop();
             var ts = stopwatch.Elapsed;
             System.Console.WriteLine();
-            System.Console.WriteLine(string.Format("Elapsed time: {0:00}:{1:00}:{2:00}.{3:000}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds));
+            System.Console.WriteLine(
+                $"Elapsed time: {ts.Hours:00}:{ts.Minutes:00}:{ts.Seconds:00}.{ts.Milliseconds:000}");
         }
 
-        private static void CheckRequiredVMs(IEnumerable<string> vmNames, VMNameType nameType, IDictionary<string, string> vmNamesMap)
+        private static void CheckRequiredVMs(IEnumerable<string> vmNames, VmNameType nameType, IDictionary<string, string> vmNamesMap)
         {
             if (vmNames != null)
                 foreach (var vmName in vmNames)
-                    if (nameType == VMNameType.SystemName && !vmNamesMap.Keys.Contains(vmName, StringComparer.OrdinalIgnoreCase) ||
-                       nameType == VMNameType.ElementName && !vmNamesMap.Values.Contains(vmName, StringComparer.OrdinalIgnoreCase))
+                    if (nameType == VmNameType.SystemName && !vmNamesMap.Keys.Contains(vmName, StringComparer.OrdinalIgnoreCase) ||
+                       nameType == VmNameType.ElementName && !vmNamesMap.Values.Contains(vmName, StringComparer.OrdinalIgnoreCase))
                     {
-                        System.Console.WriteLine(string.Format("WARNING: \"{0}\" not found", vmName));
+                        System.Console.WriteLine($"WARNING: \"{vmName}\" not found");
                     }
         }
 
@@ -267,15 +256,15 @@ namespace HyperVBackup.Console
         {
             try
             {
-                consoleWidth = System.Console.WindowWidth;
+                _consoleWidth = System.Console.WindowWidth;
             }
             catch (Exception)
             {
-                consoleWidth = 80;
+                _consoleWidth = 80;
             }
         }
 
-        private static IEnumerable<string> GetVMNames(Options options)
+        private static IEnumerable<string> GetVmNames(Options options)
         {
             IEnumerable<string> vmNames = null;
 
@@ -285,7 +274,7 @@ namespace HyperVBackup.Console
                 vmNames = options.List;
 
             if (vmNames != null)
-                vmNames = (from o in vmNames where o.Trim().Length > 0 select o.Trim());
+                vmNames = from o in vmNames where o.Trim().Length > 0 select o.Trim();
 
             return vmNames;
         }
@@ -296,7 +285,7 @@ namespace HyperVBackup.Console
             System.Console.Error.WriteLine("Cancelling backup...");
 
             // Avoid CTRL+C during VSS snapshots
-            cancel = true;
+            _cancel = true;
             e.Cancel = true;
         }
 
@@ -304,7 +293,7 @@ namespace HyperVBackup.Console
         {
             switch (e.Action)
             {
-                case EventAction.InitializingVSS:
+                case EventAction.InitializingVss:
                     System.Console.WriteLine("Initializing VSS");
                     break;
                 case EventAction.StartingSnaphotSet:
@@ -323,21 +312,21 @@ namespace HyperVBackup.Console
                 case EventAction.StartingArchive:
                     System.Console.WriteLine();
                     foreach (var componentName in e.Components.Values)
-                        System.Console.WriteLine(string.Format("Component: \"{0}\"", componentName));
-                    System.Console.WriteLine(string.Format("Archive: \"{0}\"", e.AcrhiveFileName));
+                        System.Console.WriteLine($"Component: \"{componentName}\"");
+                    System.Console.WriteLine($"Archive: \"{e.AcrhiveFileName}\"");
                     break;
                 case EventAction.StartingEntry:
-                    System.Console.WriteLine(string.Format("Entry: \"{0}\"", e.CurrentEntry));
-                    currentWidth = 0;
+                    System.Console.WriteLine($"Entry: \"{e.CurrentEntry}\"");
+                    _currentWidth = 0;
                     break;
                 case EventAction.SavingEntry:
                     if (e.TotalBytesToTransfer > 0)
                     {
-                        int width = (int)Math.Round(e.BytesTransferred * consoleWidth / (decimal)e.TotalBytesToTransfer);
+                        var width = (int)Math.Round(e.BytesTransferred * _consoleWidth / (decimal)e.TotalBytesToTransfer);
 
-                        for (int i = 0; i < width - currentWidth; i++)
+                        for (var i = 0; i < width - _currentWidth; i++)
                             System.Console.Write(".");
-                        currentWidth = width;
+                        _currentWidth = width;
 
                         if (e.BytesTransferred == e.TotalBytesToTransfer)
                             System.Console.WriteLine();
@@ -346,11 +335,11 @@ namespace HyperVBackup.Console
                     }
                     break;
                 case EventAction.PercentProgress:
-                    int progressWidth = e.PercentDone * consoleWidth / 100;
+                    var progressWidth = e.PercentDone * _consoleWidth / 100;
 
-                    for (int i = 0; i < progressWidth - currentWidth; i++)
+                    for (var i = 0; i < progressWidth - _currentWidth; i++)
                         System.Console.Write(".");
-                    currentWidth = progressWidth;
+                    _currentWidth = progressWidth;
 
                     if (e.PercentDone == 100)
                         System.Console.WriteLine();
@@ -358,7 +347,7 @@ namespace HyperVBackup.Console
                     break;
             }
 
-            e.Cancel = cancel;
+            e.Cancel = _cancel;
         }
     }
 }
