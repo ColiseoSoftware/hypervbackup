@@ -23,6 +23,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using CommandLine;
 using CommandLine.Text;
 using HyperVBackUp.Engine;
@@ -96,8 +97,12 @@ namespace HyperVBackup.Console
             [HelpOption(HelpText = "Display this help screen.")]
             public string GetUsage()
             {
-                var help = new HelpText(Environment.NewLine);
-                help.AdditionalNewLineAfterOption = false;
+                var header = new StringBuilder();
+                header.AppendLine();
+                header.AppendLine("Note: short switchs use one dash (-) / long switchs use two dashes (--). Example: HyperVBackup -l \"Mail Server\" --compressionlevel 0");
+                header.AppendLine();
+
+                var help = new HelpText(header.ToString()) { AdditionalNewLineAfterOption = false };
                 HandleParsingErrorsInHelp(help);
                 help.AddOptions(this);
 

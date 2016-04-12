@@ -197,7 +197,7 @@ namespace HyperVBackUp.Engine
         }
 
 
-        private static string sevenZipCurrentFile = String.Empty;
+        private static string sevenZipCurrentFile = string.Empty;
 
         private void BackupFiles(IList<IVssWMComponent> components, IDictionary<string, string> volumeMap,
                                    IDictionary<string, string> snapshotVolumeMap, IDictionary<string, string> vmNamesMap,
