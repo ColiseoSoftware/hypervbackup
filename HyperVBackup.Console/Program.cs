@@ -69,13 +69,13 @@ namespace HyperVBackup.Console
             [Option('d', "directcopy", HelpText = "Do not compress the output, just copy the files recreating the folder structure.", MutuallyExclusiveSet = "zd")]
             public bool DirectCopy { get; set; }
 
-            [Option("outputformat", HelpText = "Backup archive name format. {0} is the VM's name, {1} the VM's GUID and {2} is the current date and time. Default: \"{0}_{2:yyyyMMddHHmmss}{3}\"")]
+            [Option("outputformat", HelpText = "Backup archive name format. {0} is the VM's name, {1} the VM's GUID, {2} is the current date and time and {3} is the extension for the compression format (7z or zip). Default: \"{0}_{2:yyyyMMddHHmmss}{3}\"")]
             public string OutputFormat { get; set; } = "{0}_{2:yyyyMMddHHmmss}{3}";
 
             [Option('s', "singlevss", HelpText = "Perform one single snapshot for all the VMs.")]
             public bool SingleSnapshot { get; set; }
 
-            [Option("compressionlevel", DefaultValue = 6, HelpText = "Compression level, between 0 (no compression) and 9 (max. compression).")]
+            [Option("compressionlevel", DefaultValue = 3, HelpText = "Compression level, between 0 (no compression, very fast) and 9 (max. compression, very slow).")]
             public int CompressionLevel { get; set; }
 
             [Option("cleanoutputbydays", DefaultValue = 0, HelpText = "Delete all files in the output folder older than x days. TOTALLY OPTIONAL. USE WITH CAUTION.")]
@@ -92,7 +92,7 @@ namespace HyperVBackup.Console
             {
                 var header = new StringBuilder();
                 header.AppendLine();
-                header.AppendLine("Note: short switchs use one dash (-) / long switchs use two dashes (--). Example: HyperVBackup -l \"Mail Server\" --compressionlevel 0");
+                header.AppendLine("Note: short switchs use one dash (-) / long switches use two dashes (--). Example: HyperVBackup -l \"Mail Server\" --compressionlevel 0");
                 header.AppendLine();
 
                 var help = new HelpText(header.ToString()) { AdditionalNewLineAfterOption = false };
@@ -134,9 +134,9 @@ namespace HyperVBackup.Console
                     if (options.CleanOutputMb != 0)
                         CleanOutputByMegabytes(options.Output, options.CleanOutputMb);
 
-                    var vmNames = GetVmNames(options).ToList();
+                    var vmNames = GetVmNames(options);
 
-                    if (!vmNames.Any())
+                    if (vmNames == null)
                         System.Console.WriteLine("Backing up all VMs on this server");
 
                     if (!Directory.Exists(options.Output))
@@ -268,9 +268,9 @@ namespace HyperVBackup.Console
             }
         }
 
-        private static IEnumerable<string> GetVmNames(Options options)
+        private static ICollection<string> GetVmNames(Options options)
         {
-            IEnumerable<string> vmNames = null;
+            ICollection<string> vmNames = null;
 
             if (options.File != null)
                 vmNames = File.ReadAllLines(options.File);
@@ -278,7 +278,7 @@ namespace HyperVBackup.Console
                 vmNames = options.List;
 
             if (vmNames != null)
-                vmNames = from o in vmNames where o.Trim().Length > 0 select o.Trim();
+                vmNames = (from o in vmNames where o.Trim().Length > 0 select o.Trim()).ToList();
 
             return vmNames;
         }
