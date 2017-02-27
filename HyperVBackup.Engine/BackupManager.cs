@@ -111,7 +111,7 @@ namespace HyperVBackUp.Engine
 
                 IList<IVssWMComponent> components = new List<IVssWMComponent>();
                 // key: volumePath, value: volumeName. These values are equivalent on a standard volume, but differ in the CSV case  
-                IDictionary<string, string> volumeMap = new Dictionary<string, string>();
+                IDictionary<string, string> volumeMap = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
                 var wm = vss.WriterMetadata.FirstOrDefault(o => o.WriterId.Equals(hyperVwriterGuid));
                 foreach (var component in wm.Components)
@@ -135,7 +135,7 @@ namespace HyperVBackUp.Engine
                                 volumeName = volumePath;
                             }
 
-                            if (!volumeMap.ContainsKey(volumePath))
+                            if (!volumeMap.ContainsKey(volumePath)) // added StringComparer.InvariantCultureIgnoreCase to volumeMap Dictionary to fix duplicate Keys with different case
                                 volumeMap.Add(volumePath, volumeName);
                         }
                     }
