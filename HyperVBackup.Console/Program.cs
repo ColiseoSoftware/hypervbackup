@@ -25,6 +25,7 @@ using System.Text;
 using CommandLine;
 using CommandLine.Text;
 using HyperVBackUp.Engine;
+using NLog;
 
 namespace HyperVBackup.Console
 {
@@ -33,6 +34,7 @@ namespace HyperVBackup.Console
         static volatile bool _cancel = false;
         static int _currentWidth = 0;
         static int _consoleWidth = 0;
+        private static ILogger _logger;
 
         class Options
         {
@@ -112,14 +114,18 @@ namespace HyperVBackup.Console
 
         static void Main(string[] args)
         {
+            _logger = LogManager.GetCurrentClassLogger();
+
             try
             {
                 var stopwatch = new Stopwatch();
                 stopwatch.Start();
 
-                System.Console.WriteLine("HyperVBackup 2.2");
+                System.Console.WriteLine("HyperVBackup 3");
                 System.Console.WriteLine("Copyright (C) 2012 Cloudbase Solutions Srl");
-                System.Console.WriteLine("Copyright (C) 2016 Coliseo Software Srl");
+                System.Console.WriteLine("Copyright (C) 2016/2017 Coliseo Software Srl");
+
+                _logger.Info($"HyperVBackup started at {DateTime.Now}");
 
                 var parser = new Parser(ConfigureSettings);
                 var options = new Options();
@@ -128,25 +134,27 @@ namespace HyperVBackup.Console
                     GetConsoleWidth();
                     System.Console.WriteLine();
 
-                    if (options.CleanOutputDays != 0)
-                        CleanOutputByDays(options.Output, options.CleanOutputDays);
-
-                    if (options.CleanOutputMb != 0)
-                        CleanOutputByMegabytes(options.Output, options.CleanOutputMb);
-
                     var vmNames = GetVmNames(options);
 
                     if (vmNames == null)
-                        System.Console.WriteLine("Backing up all VMs on this server");
+                    {
+                        _logger.Info("Backing up all VMs on this server");
+                    }
 
                     if (!Directory.Exists(options.Output))
+                    {
                         throw new Exception($"The folder \"{options.Output}\" is not valid");
+                    }
 
                     if (options.CleanOutputDays != 0)
+                    {
                         CleanOutputByDays(options.Output, options.CleanOutputDays);
+                    }
 
                     if (options.CleanOutputMb != 0)
+                    {
                         CleanOutputByMegabytes(options.Output, options.CleanOutputMb);
+                    }
 
                     var nameType = options.Name ? VmNameType.ElementName : VmNameType.SystemName;
 
@@ -173,17 +181,21 @@ namespace HyperVBackup.Console
                     CheckRequiredVMs(vmNames, nameType, vmNamesMap);
 
                     ShowElapsedTime(stopwatch);
+
+                    _logger.Info($"HyperVBackup ended at {DateTime.Now}");
                 }
             }
             catch (BackupCancelledException ex)
             {
                 System.Console.Error.WriteLine(string.Format(ex.Message));
+                _logger.Error(ex.ToString());
                 Environment.Exit(3);
             }
             catch (Exception ex)
             {
                 System.Console.Error.WriteLine($"Error: {ex.Message}");
                 System.Console.Error.WriteLine(ex.StackTrace);
+                _logger.Error(ex.ToString());
                 Environment.Exit(2);
             }
 
@@ -199,7 +211,7 @@ namespace HyperVBackup.Console
                 var fileInfo = new FileInfo(file);
                 if (fileInfo.LastWriteTime < DateTime.Now.AddDays(days * -1))
                 {
-                    System.Console.WriteLine("Deleting file {0}", fileInfo.Name);
+                    _logger.Info($"Deleting file {fileInfo.Name}");
                     fileInfo.Delete();
                 }
             }
@@ -213,15 +225,14 @@ namespace HyperVBackup.Console
 
             if (totalSize > desiredMaxSize)
             {
-                System.Console.WriteLine("Size of output folder is {0} Megabytes, deleting some files ...", totalSize / 1024 / 1024);
+                _logger.Info($"Size of output folder is {totalSize / 1024 / 1024} Megabytes, deleting some files ...");
 
                 var files = dirInfo.GetFiles();
                 while (totalSize > desiredMaxSize && files.Length != 0)
                 {
                     var sortedFiles = files.OrderBy(f => f.LastWriteTime).ToList();
                     var filetoDelete = sortedFiles[0].FullName;
-
-                    System.Console.WriteLine("Deleting file {0}", filetoDelete);
+                    _logger.Info($"Deleting file {filetoDelete}");
                     File.Delete(filetoDelete);
 
                     files = dirInfo.GetFiles();
@@ -240,8 +251,7 @@ namespace HyperVBackup.Console
         {
             stopwatch.Stop();
             var ts = stopwatch.Elapsed;
-            System.Console.WriteLine();
-            System.Console.WriteLine(
+            _logger.Info(
                 $"Elapsed time: {ts.Hours:00}:{ts.Minutes:00}:{ts.Seconds:00}.{ts.Milliseconds:000}");
         }
 
@@ -252,7 +262,7 @@ namespace HyperVBackup.Console
                     if (nameType == VmNameType.SystemName && !vmNamesMap.Keys.Contains(vmName, StringComparer.OrdinalIgnoreCase) ||
                        nameType == VmNameType.ElementName && !vmNamesMap.Values.Contains(vmName, StringComparer.OrdinalIgnoreCase))
                     {
-                        System.Console.WriteLine($"WARNING: \"{vmName}\" not found");
+                        _logger.Error($"WARNING: \"{vmName}\" not found");
                     }
         }
 
@@ -298,55 +308,74 @@ namespace HyperVBackup.Console
             switch (e.Action)
             {
                 case EventAction.InitializingVss:
-                    System.Console.WriteLine("Initializing VSS");
+                    _logger.Info("Initializing VSS");
                     break;
+
                 case EventAction.StartingSnaphotSet:
-                    System.Console.WriteLine();
-                    System.Console.WriteLine("Starting snapshot set for:");
+                    _logger.Info("Starting snapshot set for:");
+
                     foreach (var componentName in e.Components.Values)
-                        System.Console.WriteLine(componentName);
-                    System.Console.WriteLine();
-                    System.Console.WriteLine("Volumes:");
-                    foreach (var volumePath in e.VolumeMap.Keys)
-                        System.Console.WriteLine(volumePath);
-                    break;
-                case EventAction.DeletingSnapshotSet:
-                    System.Console.WriteLine("Deleting snapshot set");
-                    break;
-                case EventAction.StartingArchive:
-                    System.Console.WriteLine();
-                    foreach (var componentName in e.Components.Values)
-                        System.Console.WriteLine($"Component: \"{componentName}\"");
-                    System.Console.WriteLine($"Archive: \"{e.AcrhiveFileName}\"");
-                    break;
-                case EventAction.StartingEntry:
-                    System.Console.WriteLine($"Entry: \"{e.CurrentEntry}\"");
-                    _currentWidth = 0;
-                    break;
-                case EventAction.SavingEntry:
-                    if (e.TotalBytesToTransfer > 0)
                     {
-                        var width = (int)Math.Round(e.BytesTransferred * _consoleWidth / (decimal)e.TotalBytesToTransfer);
+                        _logger.Info(componentName);
+                    }
 
-                        for (var i = 0; i < width - _currentWidth; i++)
-                            System.Console.Write(".");
-                        _currentWidth = width;
-
-                        if (e.BytesTransferred == e.TotalBytesToTransfer)
-                            System.Console.WriteLine();
-
-                        //Console.WriteLine(string.Format("{0:0.#}%", e.BytesTransferred * 100 / (decimal)e.TotalBytesToTransfer));
+                    _logger.Info("");
+                    _logger.Info("Volumes:");
+                    foreach (var volumePath in e.VolumeMap.Keys)
+                    {
+                        System.Console.WriteLine(volumePath);
                     }
                     break;
+
+                case EventAction.DeletingSnapshotSet:
+                    _logger.Info("Deleting snapshot set");
+                    break;
+
+                case EventAction.StartingArchive:
+                    _logger.Info("");
+                    foreach (var componentName in e.Components.Values)
+                    {
+                        _logger.Info($"Component: \"{componentName}\"");
+                    }
+                    _logger.Info($"Archive: \"{e.AcrhiveFileName}\"");
+                    break;
+
+                case EventAction.StartingEntry:
+                    _logger.Info($"Entry: \"{e.CurrentEntry}\"");
+                    _currentWidth = 0;
+                    break;
+
+                //case EventAction.SavingEntry:
+                //    if (e.TotalBytesToTransfer > 0)
+                //    {
+                //        var width = (int)Math.Round(e.BytesTransferred * _consoleWidth / (decimal)e.TotalBytesToTransfer);
+
+                //        for (var i = 0; i < width - _currentWidth; i++)
+                //            System.Console.Write(".");
+                //        _currentWidth = width;
+
+                //        if (e.BytesTransferred == e.TotalBytesToTransfer)
+                //            System.Console.WriteLine();
+
+                //        //Console.WriteLine(string.Format("{0:0.#}%", e.BytesTransferred * 100 / (decimal)e.TotalBytesToTransfer));
+                //    }
+                //    break;
+
                 case EventAction.PercentProgress:
                     var progressWidth = e.PercentDone * _consoleWidth / 100;
 
                     for (var i = 0; i < progressWidth - _currentWidth; i++)
+                    {
                         System.Console.Write(".");
+                    }
                     _currentWidth = progressWidth;
 
                     if (e.PercentDone == 100)
+                    {
                         System.Console.WriteLine();
+                    }
+
+                    _logger.Debug($"Percent done: {e.PercentDone}%");
 
                     break;
             }

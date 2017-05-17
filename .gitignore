@@ -2,10 +2,10 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-/HyperVBackup.Console/bin/Release
+/HyperVBackup.Console/bin
 /HyperVBackup.Console/obj
 /HyperVBackup.Engine/bin
 /HyperVBackup.Engine/obj
 /packages
-/.vs/config/applicationhost.config
-/.vs/HVBackup/v14/.suo
+/.vs
+/.vs/HVBackup/v15/.suo
