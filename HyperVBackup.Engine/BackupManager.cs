@@ -308,9 +308,7 @@ namespace HyperVBackUp.Engine
                             }
                             else
                             {
-                                AddPathToCompressionList(files, streams, snapshotVolumeMap[volumeName],
-                                    volumePath.Length,
-                                    path);
+                                AddPathToCompressionList(files, streams, snapshotVolumeMap[volumeName], volumePath.Length, path);
                             }
                         }
                         else
@@ -480,11 +478,6 @@ namespace HyperVBackUp.Engine
                                     };
 
                                     Report7ZipProgress(component, volumeMap, ebp);
-
-                                    if (_cancel)
-                                    {
-                                        e.Cancel = true;
-                                    }
                                 };
                             }
 
@@ -521,8 +514,8 @@ namespace HyperVBackUp.Engine
             }
         }
 
-        private static void AddPathToCompressionList(Dictionary<string, Stream> files,
-            IList<Stream> streams, string snapshotPath, int volumePathLength, string vmPath)
+        private static void AddPathToCompressionList(IDictionary<string, Stream> files,
+            ICollection<Stream> streams, string snapshotPath, int volumePathLength, string vmPath)
         {
             var srcPath = Path.Combine(snapshotPath, vmPath.Substring(volumePathLength));
 
@@ -558,7 +551,6 @@ namespace HyperVBackUp.Engine
             }
         }
 
-
         private static void DoDirectCopy(string vmBackupPath, string snapshotPath, int volumePathLength, string vmPath)
         {
             var srcPath = Path.Combine(snapshotPath, vmPath.Substring(volumePathLength));
@@ -579,14 +571,20 @@ namespace HyperVBackUp.Engine
             else if (File.Exists(srcPath))
             {
                 var outputName = Path.Combine(vmBackupPath, vmPath.Substring(volumePathLength));
-                var s = File.OpenRead(srcPath);
+                using (var s = File.OpenRead(srcPath))
+                {
+                    var folder = Path.GetDirectoryName(outputName);
+                    if (!Directory.Exists(folder))
+                    {
+                        Directory.CreateDirectory(folder);
+                    }
 
-                var folder = Path.GetDirectoryName(outputName);
-                if (!Directory.Exists(folder))
-                    Directory.CreateDirectory(folder);
+                    using (var ns = File.Create(outputName))
+                    {
+                        s.CopyTo(ns);
+                    }
+                }
 
-                var ns = File.Create(outputName);
-                s.CopyTo(ns);
             }
             else
             {

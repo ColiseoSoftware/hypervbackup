@@ -232,6 +232,11 @@ namespace HyperVBackup.Console
 
         private static void ExecuteProcess(string fileName, ILogger logger)
         {
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return;
+            }
+
             using (var process = new Process())
             {
                 logger.Debug($"Executing program {fileName}");
