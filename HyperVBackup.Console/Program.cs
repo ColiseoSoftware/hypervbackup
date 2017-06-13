@@ -77,7 +77,7 @@ namespace HyperVBackup.Console
             [Option('s', "singlevss", HelpText = "Perform one single snapshot for all the VMs.")]
             public bool SingleSnapshot { get; set; }
 
-            [Option("compressionlevel", DefaultValue = 3, HelpText = "Compression level, between 0 (no compression, very fast) and 9 (max. compression, very slow).")]
+            [Option("compressionlevel", DefaultValue = -1, HelpText = "Compression level, between 0 (no compression, very fast) and 9 (max. compression, very slow).")]
             public int CompressionLevel { get; set; }
 
             [Option("cleanoutputbydays", DefaultValue = 0, HelpText = "Delete all files in the output folder older than x days. TOTALLY OPTIONAL. USE WITH CAUTION.")]
@@ -85,6 +85,12 @@ namespace HyperVBackup.Console
 
             [Option("cleanoutputbymb", DefaultValue = 0, HelpText = "Delete older files in the output folder if total size is bigger then x Megabytes. TOTALLY OPTIONAL. USE WITH CAUTION.")]
             public int CleanOutputMb { get; set; }
+
+            [Option("onsuccess", HelpText = "Execute this program if backup completes correctly.")]
+            public string OnSuccess { get; set; }
+
+            [Option("onfailure", HelpText = "Execute this program if backup fails.")]
+            public string OnFailure { get; set; }
 
             [ParserState]
             public IParserState LastParserState { get; set; }
@@ -115,6 +121,7 @@ namespace HyperVBackup.Console
         static void Main(string[] args)
         {
             _logger = LogManager.GetCurrentClassLogger();
+            var options = new Options();
 
             try
             {
@@ -122,13 +129,12 @@ namespace HyperVBackup.Console
                 stopwatch.Start();
 
                 System.Console.WriteLine("HyperVBackup 3");
-                System.Console.WriteLine("Copyright (C) 2012 Cloudbase Solutions Srl");
-                System.Console.WriteLine("Copyright (C) 2016/2017 Coliseo Software Srl");
+                System.Console.WriteLine("Copyright (C) 2012 Cloudbase Solutions SRL");
+                System.Console.WriteLine("Copyright (C) 2016/2017 Coliseo Software SRL");
 
                 _logger.Info($"HyperVBackup started at {DateTime.Now}");
 
                 var parser = new Parser(ConfigureSettings);
-                var options = new Options();
                 if (parser.ParseArgumentsStrict(args, options, () => Environment.Exit(1)))
                 {
                     GetConsoleWidth();
@@ -176,11 +182,18 @@ namespace HyperVBackup.Console
                         DirectCopy = options.DirectCopy
                     };
 
-                    var vmNamesMap = mgr.VssBackup(vmNames, nameType, backupOptions);
+                    var vmNamesMap = mgr.VssBackup(vmNames, nameType, backupOptions, _logger);
 
                     CheckRequiredVMs(vmNames, nameType, vmNamesMap);
 
                     ShowElapsedTime(stopwatch);
+
+                    if (!string.IsNullOrEmpty(options.OnSuccess))
+                    {
+                        _logger.Info("Executing OnSucess program");
+                        ExecuteProcess(options.OnSuccess, _logger);
+
+                    }
 
                     _logger.Info($"HyperVBackup ended at {DateTime.Now}");
                 }
@@ -189,6 +202,13 @@ namespace HyperVBackup.Console
             {
                 System.Console.Error.WriteLine(string.Format(ex.Message));
                 _logger.Error(ex.ToString());
+
+                if (!string.IsNullOrEmpty(options.OnFailure))
+                {
+                    _logger.Info("Executing OnFailure program");
+                    ExecuteProcess(options.OnFailure, _logger);
+                }
+
                 Environment.Exit(3);
             }
             catch (Exception ex)
@@ -196,10 +216,47 @@ namespace HyperVBackup.Console
                 System.Console.Error.WriteLine($"Error: {ex.Message}");
                 System.Console.Error.WriteLine(ex.StackTrace);
                 _logger.Error(ex.ToString());
+                ExecuteProcess(options.OnFailure, _logger);
+
+                if (!string.IsNullOrEmpty(options.OnFailure))
+                {
+                    _logger.Info("Executing OnFailure program");
+                    ExecuteProcess(options.OnFailure, _logger);
+                }
+
                 Environment.Exit(2);
             }
 
             Environment.Exit(_cancel ? 3 : 0);
+        }
+
+        private static void ExecuteProcess(string fileName, ILogger logger)
+        {
+            using (var process = new Process())
+            {
+                logger.Debug($"Executing program {fileName}");
+
+                process.StartInfo.FileName = fileName;
+                process.StartInfo.WorkingDirectory = Path.GetDirectoryName(fileName);
+                process.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.StartInfo.CreateNoWindow = true;
+
+                process.Start();
+                process.WaitForExit();
+
+                var output = process.StandardOutput.ReadToEnd();
+                var error = process.StandardError.ReadToEnd();
+                var exitCode = process.ExitCode;
+
+                process.Close();
+
+                logger.Info($"Exit code of executing program {fileName} is {exitCode}");
+                logger.Debug($"Output of executing program {fileName} is {output}");
+                logger.Debug($"Errors of executing program {fileName} are {error}");
+            }
         }
 
         private static void CleanOutputByDays(string output, int days)
@@ -333,15 +390,11 @@ namespace HyperVBackup.Console
 
                 case EventAction.StartingArchive:
                     _logger.Info("");
-                    foreach (var componentName in e.Components.Values)
-                    {
-                        _logger.Info($"Component: \"{componentName}\"");
-                    }
-                    _logger.Info($"Archive: \"{e.AcrhiveFileName}\"");
+                    _logger.Info($"Creating archive: \"{e.AcrhiveFileName}\"");
                     break;
 
                 case EventAction.StartingEntry:
-                    _logger.Info($"Entry: \"{e.CurrentEntry}\"");
+                    _logger.Info($"Compressing entry: \"{e.CurrentEntry}\"");
                     _currentWidth = 0;
                     break;
 
@@ -351,13 +404,18 @@ namespace HyperVBackup.Console
                 //        var width = (int)Math.Round(e.BytesTransferred * _consoleWidth / (decimal)e.TotalBytesToTransfer);
 
                 //        for (var i = 0; i < width - _currentWidth; i++)
+                //        {
                 //            System.Console.Write(".");
+                //        }
+
                 //        _currentWidth = width;
 
                 //        if (e.BytesTransferred == e.TotalBytesToTransfer)
+                //        {
                 //            System.Console.WriteLine();
+                //        }
 
-                //        //Console.WriteLine(string.Format("{0:0.#}%", e.BytesTransferred * 100 / (decimal)e.TotalBytesToTransfer));
+                //        System.Console.WriteLine($"{e.BytesTransferred * 100 / (decimal) e.TotalBytesToTransfer:0.#}%");
                 //    }
                 //    break;
 
