@@ -92,6 +92,9 @@ namespace HyperVBackup.Console
             [Option("onfailure", HelpText = "Execute this program if backup fails.")]
             public string OnFailure { get; set; }
 
+            [Option("mt", HelpText = "Enable multi-threaded compression (only for 7zip format).")]
+            public bool MultiThreaded { get; set; }
+
             [ParserState]
             public IParserState LastParserState { get; set; }
 
@@ -114,7 +117,9 @@ namespace HyperVBackup.Console
             {
                 var errors = help.RenderParsingErrorsText(this, 1);
                 if (!string.IsNullOrEmpty(errors))
+                {
                     help.AddPreOptionsLine(string.Concat("ERROR: ", errors, Environment.NewLine));
+                }
             }
         }
 
@@ -179,7 +184,8 @@ namespace HyperVBackup.Console
                         VhdIgnore = options.VhdIgnore,
                         Password = options.Password,
                         ZipFormat = options.ZipFormat,
-                        DirectCopy = options.DirectCopy
+                        DirectCopy = options.DirectCopy,
+                        MultiThreaded = options.MultiThreaded
                     };
 
                     var vmNamesMap = mgr.VssBackup(vmNames, nameType, backupOptions, _logger);

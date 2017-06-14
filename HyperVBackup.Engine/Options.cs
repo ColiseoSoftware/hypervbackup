@@ -13,5 +13,6 @@ namespace HyperVBackUp.Engine
         public int CompressionLevel { get; set; }
         public bool ZipFormat { get; set; }
         public bool DirectCopy { get; set; }
+        public bool MultiThreaded { get; set; }
     }
 }
