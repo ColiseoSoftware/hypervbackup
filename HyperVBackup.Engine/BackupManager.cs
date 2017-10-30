@@ -375,6 +375,8 @@ namespace HyperVBackUp.Engine
                                 sevenZip.CustomParameters.Add("mt", "on");
                             }
 
+                            sevenZip.CustomParameters.Add("d", "24");
+
                             switch (options.CompressionLevel)
                             {
                                 case 0:

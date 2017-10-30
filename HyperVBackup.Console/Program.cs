@@ -222,7 +222,6 @@ namespace HyperVBackup.Console
                 System.Console.Error.WriteLine($"Error: {ex.Message}");
                 System.Console.Error.WriteLine(ex.StackTrace);
                 _logger.Error(ex.ToString());
-                ExecuteProcess(options.OnFailure, _logger);
 
                 if (!string.IsNullOrEmpty(options.OnFailure))
                 {
