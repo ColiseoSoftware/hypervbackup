@@ -300,7 +300,15 @@ namespace HyperVBackup.Console
                     var sortedFiles = files.OrderBy(f => f.LastWriteTime).ToList();
                     var filetoDelete = sortedFiles[0].FullName;
                     _logger.Info($"Deleting file {filetoDelete}");
-                    File.Delete(filetoDelete);
+
+                    try
+                    {
+                        File.Delete(filetoDelete);
+                    }
+                    catch (Exception e)
+                    {
+                        _logger.Error($"Cannot delete file {filetoDelete} - {e}");
+                    }
 
                     files = dirInfo.GetFiles();
                     totalSize = files.Sum(file => file.Length);
