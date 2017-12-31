@@ -38,13 +38,13 @@ namespace HyperVBackup.Console
 
         class Options
         {
-            [Option('f', "file", HelpText = "Text file containing a list of VMs to backup, one per line.", MutuallyExclusiveSet = "flax")]
+            [Option('f', "file", HelpText = "Text file containing a list of VMs to backup, one per line. If not set all VM are included.", MutuallyExclusiveSet = "flax")]
             public string File { get; set; }
 
-            [OptionList('l', "list", Separator = ',', HelpText = "List of VMs to backup, comma separated.", MutuallyExclusiveSet = "flax")]
+            [OptionList('l', "list", Separator = ',', HelpText = "List of VMs to backup, comma separated. If not set all VM are included.", MutuallyExclusiveSet = "flax")]
             public IList<string> List { get; set; }
 
-            [OptionList('x', "exclude", Separator = ',', HelpText = "List of VMs to exclude from backup, comma seperated.", MutuallyExclusiveSet = "flx")]
+            [OptionList('x', "exclude", Separator = ',', HelpText = "List of VMs to exclude from backup, comma separated. Use when all VM are included.", MutuallyExclusiveSet = "flax")]
             public IList<string> Exclude { get; set; }
 
             [OptionList('v', "vhdinclude", Separator = ',', HelpText = "List of VHDs file names to backup, comma separated.")]
@@ -53,14 +53,8 @@ namespace HyperVBackup.Console
             [OptionList('i', "vhdignore", Separator = ',', HelpText = "List of VHDs file names to ignore, comma separated.")]
             public IList<string> VhdIgnore { get; set; }
 
-            [Option('a', "all", HelpText = "Is set, backup all VMs on this server.", MutuallyExclusiveSet = "fla", DefaultValue = true)]
-            public bool All { get; set; }
-
             [Option('n', "name", HelpText = "If set, VMs to backup are specified by name.", MutuallyExclusiveSet = "ng", DefaultValue = true)]
             public bool Name { get; set; }
-
-            [Option('g', "guid", HelpText = "If set, VMs to backup are specified by guid.", MutuallyExclusiveSet = "ng")]
-            public bool Guid { get; set; }
 
             [Option('o', "output", Required = true, HelpText = "Backup ouput folder.")]
             public string Output { get; set; }
@@ -68,7 +62,7 @@ namespace HyperVBackup.Console
             [Option('p', "password", HelpText = "Secure the backup with a password.")]
             public string Password { get; set; }
 
-            [Option('z', "zip", HelpText = "Use the zip format to store the backup.", MutuallyExclusiveSet = "zd")]
+            [Option('z', "zip", HelpText = "Use the zip format to store the backup insted of the 7zip format.", MutuallyExclusiveSet = "zd")]
             public bool ZipFormat { get; set; }
 
             [Option('d', "directcopy", HelpText = "Do not compress the output, just copy the files recreating the folder structure.", MutuallyExclusiveSet = "zd")]
@@ -98,9 +92,6 @@ namespace HyperVBackup.Console
             [Option("mt", HelpText = "Enable multi-threaded compression (only for 7zip format).")]
             public bool MultiThreaded { get; set; }
 
-            [ParserState]
-            public IParserState LastParserState { get; set; }
-
             [HelpOption(HelpText = "Display this help screen.")]
             public string GetUsage()
             {
@@ -126,7 +117,7 @@ namespace HyperVBackup.Console
             }
         }
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             _logger = LogManager.GetCurrentClassLogger();
             var options = new Options();
@@ -275,9 +266,7 @@ namespace HyperVBackup.Console
 
         private static void CleanOutputByDays(string output, int days)
         {
-            var files = Directory.GetFiles(output);
-
-            foreach (var file in files)
+            foreach (var file in Directory.GetFiles(output))
             {
                 var fileInfo = new FileInfo(file);
                 if (fileInfo.LastWriteTime < DateTime.Now.AddDays(days * -1))
@@ -362,12 +351,18 @@ namespace HyperVBackup.Console
             ICollection<string> vmNames = null;
 
             if (options.File != null)
+            {
                 vmNames = File.ReadAllLines(options.File);
+            }
             else if (options.List != null)
+            {
                 vmNames = options.List;
+            }
 
             if (vmNames != null)
+            {
                 vmNames = (from o in vmNames where o.Trim().Length > 0 select o.Trim()).ToList();
+            }
 
             return vmNames;
         }
