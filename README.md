@@ -15,6 +15,7 @@ You can see all options executing the program without arguments, currently those
 ```
 f, file              Text file containing a list of VMs to backup, one per line.
 l, list              List of VMs to backup, comma separated.
+x, exclude           List of VMs to exclude from backup, comma seperated.
 v, vhdinclude        List of VHDs file names to backup, comma separated.
 i, vhdignore         List of VHDs file names to ignore, comma separated.
 a, all               (Default: True) Is set, backup all VMs on this server.

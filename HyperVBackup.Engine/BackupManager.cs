@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Management;
@@ -41,7 +42,7 @@ namespace HyperVBackUp.Engine
             ILogger logger)
         {
             _cancel = false;
-            var vmNamesMap = GetVMNames(vmNames, nameType);
+            var vmNamesMap = GetVMNames(vmNames, options.Exclude, nameType);
 
             if (vmNamesMap.Count > 0)
             {
@@ -588,7 +589,7 @@ namespace HyperVBackUp.Engine
             return (string.Format(scopeFormatStr, host));
         }
 
-        IDictionary<string, string> GetVMNames(IEnumerable<string> vmNames, VmNameType nameType)
+        IDictionary<string, string> GetVMNames(IEnumerable<string> vmNames, IList<string> vmExclude, VmNameType nameType)
         {
             IDictionary<string, string> d = new Dictionary<string, string>();
 
@@ -619,7 +620,12 @@ namespace HyperVBackUp.Engine
                 using (var moc = searcher.Get())
                     foreach (var mo in moc)
                         using (mo)
-                            d.Add((string)mo[vmIdField], (string)mo["ElementName"]);
+                        {
+                            if (vmExclude==null || !vmExclude.Contains((string) mo["ElementName"], StringComparer.Create(CultureInfo.InvariantCulture, true)))
+                            {
+                                d.Add((string) mo[vmIdField], (string) mo["ElementName"]);
+                            }
+                        }
             }
 
             return d;
