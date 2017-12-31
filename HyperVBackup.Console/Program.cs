@@ -38,11 +38,14 @@ namespace HyperVBackup.Console
 
         class Options
         {
-            [Option('f', "file", HelpText = "Text file containing a list of VMs to backup, one per line.", MutuallyExclusiveSet = "fla")]
+            [Option('f', "file", HelpText = "Text file containing a list of VMs to backup, one per line.", MutuallyExclusiveSet = "flax")]
             public string File { get; set; }
 
-            [OptionList('l', "list", Separator = ',', HelpText = "List of VMs to backup, comma separated.", MutuallyExclusiveSet = "fla")]
+            [OptionList('l', "list", Separator = ',', HelpText = "List of VMs to backup, comma separated.", MutuallyExclusiveSet = "flax")]
             public IList<string> List { get; set; }
+
+            [OptionList('x', "exclude", Separator = ',', HelpText = "List of VMs to exclude from backup, comma seperated.", MutuallyExclusiveSet = "flx")]
+            public IList<string> Exclude { get; set; }
 
             [OptionList('v', "vhdinclude", Separator = ',', HelpText = "List of VHDs file names to backup, comma separated.")]
             public IList<string> VhdInclude { get; set; }
@@ -185,7 +188,8 @@ namespace HyperVBackup.Console
                         Password = options.Password,
                         ZipFormat = options.ZipFormat,
                         DirectCopy = options.DirectCopy,
-                        MultiThreaded = options.MultiThreaded
+                        MultiThreaded = options.MultiThreaded,
+                        Exclude = options.Exclude
                     };
 
                     var vmNamesMap = mgr.VssBackup(vmNames, nameType, backupOptions, _logger);
