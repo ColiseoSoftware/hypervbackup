@@ -21,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Principal;
 using System.Text;
 using CommandLine;
 using CommandLine.Text;
@@ -133,6 +134,11 @@ namespace HyperVBackup.Console
 
                 _logger.Info($"HyperVBackup started at {DateTime.Now}");
 
+                if (!IsAdministrator())
+                {
+                    throw new Exception("HyperVBackup requires administrator permissions");
+                }
+
                 var parser = new Parser(ConfigureSettings);
                 if (parser.ParseArgumentsStrict(args, options, () => Environment.Exit(1)))
                 {
@@ -185,15 +191,26 @@ namespace HyperVBackup.Console
 
                     var vmNamesMap = mgr.VssBackup(vmNames, nameType, backupOptions, _logger);
 
-                    CheckRequiredVMs(vmNames, nameType, vmNamesMap);
+                    var success = CheckRequiredVMs(vmNames, nameType, vmNamesMap);
 
                     ShowElapsedTime(stopwatch);
 
-                    if (!string.IsNullOrEmpty(options.OnSuccess))
+                    if (success)
                     {
-                        _logger.Info("Executing OnSucess program");
-                        ExecuteProcess(options.OnSuccess, _logger);
+                        if (!string.IsNullOrEmpty(options.OnSuccess))
+                        {
+                            _logger.Info("Executing OnSucess program");
+                            ExecuteProcess(options.OnSuccess, _logger);
 
+                        }
+                    }
+                    else
+                    {
+                        if (!string.IsNullOrEmpty(options.OnFailure))
+                        {
+                            _logger.Info("Executing OnFailure program");
+                            ExecuteProcess(options.OnFailure, _logger);
+                        }
                     }
 
                     _logger.Info($"HyperVBackup ended at {DateTime.Now}");
@@ -323,15 +340,25 @@ namespace HyperVBackup.Console
                 $"Elapsed time: {ts.Hours:00}:{ts.Minutes:00}:{ts.Seconds:00}.{ts.Milliseconds:000}");
         }
 
-        private static void CheckRequiredVMs(IEnumerable<string> vmNames, VmNameType nameType, IDictionary<string, string> vmNamesMap)
+        private static bool CheckRequiredVMs(IEnumerable<string> vmNames, VmNameType nameType, IDictionary<string, string> vmNamesMap)
         {
+            var withErrors = false;
+
             if (vmNames != null)
+            {
                 foreach (var vmName in vmNames)
+                {
                     if (nameType == VmNameType.SystemName && !vmNamesMap.Keys.Contains(vmName, StringComparer.OrdinalIgnoreCase) ||
                        nameType == VmNameType.ElementName && !vmNamesMap.Values.Contains(vmName, StringComparer.OrdinalIgnoreCase))
                     {
-                        _logger.Error($"WARNING: \"{vmName}\" not found");
+                        _logger.Error($"\"{vmName}\" not found");
+                        withErrors = true;
                     }
+
+                }
+            }
+
+            return !withErrors;
         }
 
         private static void GetConsoleWidth()
@@ -456,6 +483,12 @@ namespace HyperVBackup.Console
             }
 
             e.Cancel = _cancel;
+        }
+
+        public static bool IsAdministrator()
+        {
+            return (new WindowsPrincipal(WindowsIdentity.GetCurrent()))
+                .IsInRole(WindowsBuiltInRole.Administrator);
         }
     }
 }
